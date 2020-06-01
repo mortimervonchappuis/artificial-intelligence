@@ -17,8 +17,11 @@ class Atomic(Sentence):
 	def __init__(self, value=None, neg=False, name=None):
 		self.value = value
 		if name is not None:
-			self.name = name
-		self.neg = neg
+			self.name = ('¬' if self.neg else '') + name
+		self.neg = True if name is not None and (name.startswith('¬') or name.startswith('-')) else neg
+
+	def reduce(self):
+		return self
 
 	def __call__(self, *args):
 		if args:
@@ -332,15 +335,25 @@ class Conjunction:
 
 class CNF:
 	def __init__(self, sentence):
-		equiv = self.simplify(sentence)
-		print('equiv', equiv)
-		clauses = self.convert(equiv)
-		print('clausel', clauses)
-		for clause in clauses:
-			clause.reduce()
-		clauses.reduce()
-		print('reduced', clauses)
-		print(equiv(), clauses())
+		if isinstance(sentence, Sentence):
+			equiv = self.simplify(sentence)
+			self.clauses = self.convert(equiv)
+			for clause in self.clauses:
+				clause.reduce()
+			self.clauses.reduce()
+			if isinstance(self.clauses, Disjunction):
+				self.clauses = Conjunction(self.clauses)
+		elif isinstance(sentence, Conjunction):
+			self.clauses = sentence
+		elif isinstance(sentence, Disjunction):
+			self.clauses = Conjunction(sentence)
+
+	def __iter__(self):
+		for clause in self.clauses:
+			yield clause
+
+	def __repr__(self):
+		return str(self.clauses)
 
 	def simplify(self, sentence):
 		try:
@@ -403,11 +416,204 @@ class CNF:
 
 
 
-a = Atomic(True)
-b = Atomic(False)
-c = Atomic(False)
+facts = [
+	Atomic(name=f'L_0_11'),
+	Atomic(name=f'¬P_11'),
+	Atomic(name=f'¬W_11'),
+	Atomic(name=f'WA_0'),
+	Atomic(name=f'HA_0'),
+	Atomic(name=f'FacingEast_0'),
+]
 
-sentence = (a * c + -b * (c >> c) + ((a + -a) * b) + (a == -a) + (a * b == c >> (a >> -a) == b * (c + (a * (a * b)))))
-CNF(sentence)
+
+def adjacent(i, j):
+	if i-1 > 0:
+		yield str(i-1) + str(j)
+	if i+1 < 5:
+		yield str(i+1) + str(j)
+	if j-1 > 0:
+		yield str(i) + str(j-1)
+	if j+1 < 5:
+		yield str(i) + str(j+1)
 
 
+def other(i, j):
+	for x in range(1, 5):
+		for y in range(1, 5):
+			if i != x or j != y:
+				yield str(x) + str(y)
+
+
+def conjunc(*args):
+	sentence = TRUE
+	for literal in args:
+		sentence = sentence * literal
+	return sentence
+
+
+def disjunc(*args):
+	sentence = FALSE
+	for literal in args:
+		sentence = sentence + literal
+	return sentence
+
+
+# Creating perception Rules
+for i in range(1, 5):
+	for j in range(1, 5):
+		facts.append(Atomic(name=f'B_{i}{j}') == disjunc(*(Atomic(name='P_' + square) for square in adjacent(i, j))))
+		facts.append(Atomic(name=f'S_{i}{j}') == disjunc(*(Atomic(name='W_' + square) for square in adjacent(i, j))))
+		facts.append(Atomic(name=f'W_{i}{j}') == -disjunc(*(Atomic(name='W_' + square) for square in adjacent(i, j))))
+
+
+
+KB = CNF(conjunc(*facts))
+
+
+class LogicAgent:
+	def __init__(self, KB, function, mode='resolution', **kwargs):
+		self.KB = KB
+		self.mode = mode
+		self.function = function
+		for k, v in kwargs.items():
+			setattr(self, k, v)
+
+	def __call__(self, percepts):
+		return self.function(percepts)
+
+	def tell(self, sentence):
+		if isinstance(sentence, Disjunction):
+			self.KB.clauses.append(sentence)
+		elif isinstance(sentence, Sentence):
+			self.tell(CNF(sentence))
+		elif isinstance(sentence, list):
+			for clause in sentence:
+				self.tell(clause)
+		elif isinstance(sentence, Conjunction):
+			self.KB.clauses.extend(sentence.literals)
+		elif isinstance(sentence, CNF):
+			self.KB.clauses.extend(sentence.clauses)
+		else:
+			raise Exception(f'Sentence {sentence} of type {type(sentence)} could not be told')
+
+	def ask(self, query):
+		if isinstance(query, str):
+			query = Atomic(name=query)
+		if self.mode == 'resolution':
+			return self.pl_resolution(query)
+		elif self.mode == 'forwardchaining':
+			return self.forwardchaining(query)
+
+	def pl_resolution(self, query):
+		clauses = Conjunction(*self.KB, Disjunction(-query))
+		new = []
+		while True:
+			for i, ci in enumerate(clauses):
+				for j, cj in enumerate(clauses):
+					if i != j:
+						resolvent = self.pl_resolve(ci, cj)
+						#print(resolvent)
+						if not len(resolvent):
+							return True
+						new.append(resolvent)
+			if set(new) - set(clauses):
+				return False
+			clauses.append(new)
+
+	def pl_resolve(self, ci, cj):
+		flag = False
+		clause = []
+		for li in ci:
+			for lj in cj:
+				if li.equals(-lj) and not flag:
+					flag = True
+				else:
+					clause.extend([li, lj])
+		return Disjunction(*clause)
+
+	def route(self, current, goals, nodes):
+		pass
+
+
+"""
+TO DO:
+
+physics -> succesor state axioms:
+	OK_t_ij = ¬P_ij * ¬(W_ij * WA_t)
+
+make percept sequence
+make action sentence
+plan shot
+route
+
+"""
+
+def make_percept_sentence(percepts, t):
+	return [f"{'¬' if value else ''}{key}_{t}" for key, value in percepts.items()]
+
+
+def physics(t):
+	sentences = []
+	for i in range(1, 5):
+		for j in range(1, 5):
+			# Position depending Successor State Axioms
+			sentences.append(Atomic(name=f'OK_{t}_{i}{j}') == Atomic(name=f'¬P_{i}{j}') * -(Atomic(name=f'W_{i}{j}') * Atomic(name=f'WA_{t}')))
+			sentences.append(Atomic(name=f'Breeze_{t}') * Atomic(name=f'L_{t}_{i}{j}') == (disjunc(*(Atomic(name=f'P_{x}') for x in adjacent(i, j)))))
+			sentences.append(Atomic(name=f'Stench_{t}') * Atomic(name=f'L_{t}_{i}{j}') == (disjunc(*(Atomic(name=f'W_{x}') for x in adjacent(i, j)))))
+		
+			# Movement
+			sentences.append(Atomic(name=f'L_{t}_{i, j}') == Atomic(name=f'L_{t-1}_{i}{j}') * (- Atomic(name=f'Forward_{t-1}') + Atomic(name=f'Bump_{t}')) + Atomic(name=f'Forward_{t-1}') * (Atomic(name=f'L_{t-1}_{i+1}{j}') * Atomic(name=f'South_{t-1}') + Atomic(name=f'L_{t-1}_{i-1}{j}') * Atomic(name=f'North_{t-1}') + Atomic(name=f'L_{t-1}_{i}{j+1}') * Atomic(name=f'West_{t-1}') + Atomic(name=f'L_{t-1}_{i}{j-1}') * Atomic(name=f'East_{t-1}')))
+
+	# General Successor State Axioms
+	if t:
+		# Wumpus Alive
+		sentences.append(Atomic(name=f'Scream_{t}') >> Atomic(name=f'¬WA_{t}'))
+
+		# Direction
+		sentences.append(Atomic(name=f'FacingEast_{t}') == Atomic(name=f'FacingNorth_{t-1}') * Atomic(name=f'TurnRight_{t-1}') + Atomic(name=f'FacingSouth_{t-1}') * Atomic(name=f'TurnLeft_{t-1}') + (Atomic(name=f'FacingEast_{t-1}') * -(Atomic(name=f'TurnLeft_{t-1}') + Atomic(name=f'TurnRight_{t-1}'))))
+		sentences.append(Atomic(name=f'FacingSouth_{t}') == Atomic(name=f'FacingEast_{t-1}') * Atomic(name=f'TurnRight_{t-1}') + Atomic(name=f'FacingWest_{t-1}') * Atomic(name=f'TurnLeft_{t-1}') + (Atomic(name=f'FacingSouth_{t-1}') * -(Atomic(name=f'TurnLeft_{t-1}') + Atomic(name=f'TurnRight_{t-1}'))))
+		sentences.append(Atomic(name=f'FacingWest_{t}') == Atomic(name=f'FacingSouth_{t-1}') * Atomic(name=f'TurnRight_{t-1}') + Atomic(name=f'FacingNorth_{t-1}') * Atomic(name=f'TurnLeft_{t-1}') + (Atomic(name=f'FacingWest_{t-1}') * -(Atomic(name=f'TurnLeft_{t-1}') + Atomic(name=f'TurnRight_{t-1}'))))
+		sentences.append(Atomic(name=f'FacingNorth_{t}') == Atomic(name=f'FacingWest_{t-1}') * Atomic(name=f'TurnRight_{t-1}') + Atomic(name=f'FacingEast_{t-1}') * Atomic(name=f'TurnLeft_{t-1}') + (Atomic(name=f'FacingNorth_{t-1}') * -(Atomic(name=f'TurnLeft_{t-1}') + Atomic(name=f'TurnRight_{t-1}'))))
+
+
+
+	print(*sentences, sep='\n')
+	return sentences
+
+physics(1)
+
+
+def wumpus_agent(self, percepts):
+	self.tell(make_percept_sentence(percepts, t))
+	self.tell(physics(t))
+	safe, current = [], None
+	for i in range(1, 5):
+		for j in range(1, 5):
+			if self.ask(f'L_{self.t}_{i}{j}'):
+				current = (i, j)
+			if self.ask(f'OK{i}{j})'):
+				safe.append((i, j))
+	if current is None:
+		raise Exception('No current position could be found.')
+	if self.ask(f'Glitter_{self.t}'):
+		plan = ['Grab'] + self.route(current, (1, 1), safe) + ['Climb']
+	if plan is None:
+		unvisited = [(i, j) for i in range(1, 5) for j in range(1, 5) 
+		for t in range(self.t+1) if self.ask(f'¬L_{t}_{i}{j}')]
+		plan = self.route(current, [node for node in unvisited if node in safe], safe)
+	if plan is None:
+		possible_wumpus = [(i, j) for i in range(1, 5) for j in range(1, 5) if not self.ask(f'¬W_{i}{j}')]
+		plan = plan_shot(cuurent, possible_wumpus, safe)
+	if plan is None:
+		not_unsafe = [(i, j) for i in range(1, 5) for j in range(1, 5) if not self.ask(f'¬OK_{self.t}_{i}{j}')]
+		plan = self.route(current, [node for node in unvisited if node in not_unsafe], safe)
+	if plan is None:
+		plan = self.route(current, (1, 1), safe) + ['Climb']
+	action = plan.pop(0)
+	self.tell(make_action_sentence(action, t))
+	self.t += 1
+	return action
+
+
+slayer = LogicAgent(KB, wumpus_agent)
+print(slayer.ask('W_11'))
