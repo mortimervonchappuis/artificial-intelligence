@@ -101,10 +101,23 @@ class HybridWumpusAgent:
 		x, y = current
 		sentences.append(Symb(f'Breeze_{self.t}') == Symb(f'B_{x}{y}'))
 		sentences.append(Symb(f'Stench_{self.t}') == Symb(f'S_{x}{y}'))
+		#sentences.append(Symb(f'B_{x}{y}') == disjunc(*(Symb(f'P_{i}{j}') for i, j in adjacent(x, y))))
+		#sentences.append(Symb(f'S_{x}{y}') == disjunc(*(Symb(f'W_{i}{j}') for i, j in adjacent(x, y))))
+		#sentences.append(Symb(f'W_{x}{y}') == conjunc(*(Symb(f'¬W_{i}{j}') for i, j in other(x, y))))
+
+		#sentences.append(Symb(f'Breeze_{self.t}') >> Symb(f'B_{x}{y}'))
+		#sentences.append(Symb(f'Stench_{self.t}') >> Symb(f'S_{x}{y}'))
+		
+		# correct rule
 		sentences.append(Symb(f'B_{x}{y}') == disjunc(*(Symb(f'P_{i}{j}') for i, j in adjacent(x, y))))
 		sentences.append(Symb(f'S_{x}{y}') == disjunc(*(Symb(f'W_{i}{j}') for i, j in adjacent(x, y))))
-		#sentences.append(Symb(f'W_{x}{y}') == conjunc(*(Symb(f'¬W_{i}{j}') for i, j in other(x, y))))
 		
+		# incorrect rule
+		#for a, b in adjacent(x, y):
+		#	sentences.append(conjunc(*(Symb(f'B_{i}{j}') for i, j in adjacent(a, b))) >> Symb(f'P_{a}{b}'))
+		#	sentences.append(conjunc(*(Symb(f'S_{i}{j}') for i, j in adjacent(a, b))) >> Symb(f'W_{a}{b}'))
+		#sentences.append(Symb(f'W_{x}{y}') == conjunc(*(Symb(f'¬W_{i}{j}') for i, j in other(x, y))))
+
 		# General Successor State Axioms
 		if self.t > 0:
 			sentences.append(Symb(f'WA_{self.t}') == Symb(f'WA_{self.t-1}') & ~Symb(f'Scream_{self.t}'))
@@ -122,7 +135,6 @@ class SupportWumpusAgent:
 
 	def __call__(self, percepts):
 		clear = lambda: system('clear') # cls for Windows
-		clear()
 
 		current = percepts['x'], percepts['y']
 		x, y = current
@@ -195,11 +207,19 @@ PRESS ENTER TO CONTINUE""")
 	def physics(self, current):
 		sentences = []
 		x, y = current
-		sentences.append(Symb(f'Breeze_{self.t}') == Symb(f'B_{x}{y}'))
-		sentences.append(Symb(f'Stench_{self.t}') == Symb(f'S_{x}{y}'))
-		sentences.append(Symb(f'B_{x}{y}') == disjunc(*(Symb(f'P_{i}{j}') for i, j in adjacent(x, y))))
-		sentences.append(Symb(f'S_{x}{y}') == disjunc(*(Symb(f'W_{i}{j}') for i, j in adjacent(x, y))))
-		sentences.append(Symb(f'W_{x}{y}') == conjunc(*(Symb(f'¬W_{i}{j}') for i, j in other(x, y))))
+		sentences.append(Symb(f'Breeze_{self.t}') >> Symb(f'B_{x}{y}'))
+		sentences.append(Symb(f'Stench_{self.t}') >> Symb(f'S_{x}{y}'))
+		
+		# correct rule
+		# sentences.append(Symb(f'B_{x}{y}') == disjunc(*(Symb(f'P_{i}{j}') for i, j in adjacent(x, y))))
+		# sentences.append(Symb(f'S_{x}{y}') == disjunc(*(Symb(f'W_{i}{j}') for i, j in adjacent(x, y))))
+		
+		# incorrect rule
+		for a, b in adjacent(x, y):
+			sentences.append(conjunc(*(Symb(f'B_{i}{j}') for i, j in adjacent(a, b))) >> Symb(f'P_{a}{b}'))
+			sentences.append(conjunc(*(Symb(f'S_{i}{j}') for i, j in adjacent(a, b))) >> Symb(f'W_{a}{b}'))
+		#sentences.append(Symb(f'W_{x}{y}') == conjunc(*(Symb(f'¬W_{i}{j}') for i, j in other(x, y))))
+		
 		# General Successor State Axioms
 		if self.t > 0:
 			sentences.append(Symb(f'WA_{self.t}') == Symb(f'WA_{self.t-1}') & ~Symb(f'Scream_{self.t}'))

@@ -1,5 +1,6 @@
 from logic import *
 from itertools import count
+from KB import *
 
 
 class LogicAgent:
@@ -15,7 +16,7 @@ class LogicAgent:
 
 	def hornify(self):
 		definite = lambda clause: sum(literal.value for literal in clause) == 1
-		self.KB = [clause for clause in self.KB if definite(clause)]
+		self.KB = CNF(Conjunction(*(clause for clause in self.KB if definite(clause))))
 
 
 	def tell(self, sentence):
@@ -43,6 +44,10 @@ class LogicAgent:
 
 
 	def resolution(self, query, status=True):
+		"""
+BOOOORING! - This is the resolution algorithm and it works, but it is not great, 
+better have a look at its much cooler sibling SMH Resolution ;)
+		"""
 		clauses = Conjunction(*self.KB, *CNF(~query).set)
 		new = Conjunction()
 		if status:
@@ -65,7 +70,8 @@ class LogicAgent:
 SUPER MEGA HYPER RESOLUTION - comes with extensions for better performance like:
 1. Ignoring clauses, that cannot lead to an empty clause (under assumption that KB is satisfiable)
 2. Disregarding clauses, that subsume others.
-3. Alot more containers to loose track of the functionality
+3. Excluding tautological clauses (A true clause cannot be resolved to become false)
+4. Alot more containers to loose track of the functionality
 Resulting in a slightly better performance and headache while debugging"""
 		clauses = Conjunction(*self.KB)
 		if type(query) == Symb:
@@ -97,6 +103,7 @@ Length of relevant {len(relevant)}
 			new = Conjunction(*(ci for ci in new if not any(cj < ci for cj in new)))
 			relevant += resolvents
 
+
 	def resolve(self, ci, cj):
 		if ci == cj:
 			return
@@ -116,22 +123,22 @@ Length of relevant {len(relevant)}
 		if flag:
 			return clause
 
+
 	def forward_chaining(self, query):
 		def premise(clause):
-			return [literal for literal in clause if not literal.value]
+			return Disjunction(*[~literal for literal in clause if not literal.value])
 
 		def conclusion(clause):
 			for literal in clause:
 				if literal.value:
 					return literal
 
+		debug = {c: [] for c in self.KB}
 		count = {clause: sum(not symbol.value for symbol in clause) for clause in self.KB}
 		inferred = {symbol: False for clause in self.KB for symbol in clause}
 		agenda = [symbol for clause, counter in count.items() if counter == 0 for symbol in clause]
-		print(self.KB)
 		while agenda:
 			p = agenda.pop(0)
-			print(p)
 			if p.equals(query):
 				return True
 			if not inferred[p]:
@@ -139,7 +146,7 @@ Length of relevant {len(relevant)}
 				for c in self.KB:
 					if p in premise(c):
 						count[c] -= 1
+						debug[c].append(p)
 					if count[c] == 0:
 						agenda.append(conclusion(c))
-		print(self.KB)
 		return False

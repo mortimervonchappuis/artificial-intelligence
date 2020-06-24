@@ -213,12 +213,16 @@ class CNF:
 			sentence = self.flatten(sentence)
 			# Convert to Clauses of Disjunctions and Conjunctions
 			self.set = self.convert(sentence)
+			if isinstance(self.set, Disjunction):
+				self.set = Conjunction(self.set)
 		elif isinstance(sentence, Conjunction):
 			self.set = sentence
 		elif isinstance(sentence, Disjunction):
 			self.set = Conjunction(sentence)
 		elif isinstance(sentence, Symb):
 			self.set = Conjunction(Disjunction(sentence))
+		else:
+			raise Exception(f'__init__ failed {type(sentence)} {sentence}')
 		
 
 	def __str__(self):

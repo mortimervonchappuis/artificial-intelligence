@@ -1,7 +1,9 @@
 import gym
 import fh_ac_ai_gym
+from fh_ac_ai_gym.wumpus import Location
 from WumpusAgents import *
 from os import system
+
 
 clear = lambda: system('clear') # cls for Windows
 clear()
@@ -33,14 +35,17 @@ if player == 'human':
 	WumpusSlayer = SupportWumpusAgent(inference)
 else:
 	WumpusSlayer = HybridWumpusAgent(inference)
-	env.render()
+
+clear()
+env.render()
 
 actions = {'Forward': 0, 'Left': 1, 'Right': 2, 'Grab': 3, 'Shoot': 4, 'Climb': 5}
 action, reward = True, 0
 
+if player == 'machine':
+	env.render()
 while (action := WumpusSlayer(observations)) != 'Climb':
 	observations, reward, done, info = env.step(actions[action])
 	clear()
-	if player == 'machine':
-		env.render()
+	env.render()
 print('Reward', reward)
