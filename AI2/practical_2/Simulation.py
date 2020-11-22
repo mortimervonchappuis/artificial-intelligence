@@ -19,38 +19,12 @@ class Simulation:
 			score = 0
 			state = self.env.reset()
 			while not done:
-				#self.env.render()
 				action = self.agent(reward, self.interpretation(state))
-				#print('ACTION', action)
 				state, reward, done, _ = self.env.step(action)
 				reward = reward[0]
 				score += reward
-				#if state['gold']:
-				#	print('\n'.join(str(t) for t in self.agent.Q.array.items()))
-				#	print('Action', action)
-				#	self.env.render()
-				#	input('NEXT')
-
-				#self.env.render()
-				#print(self.interpretation(state))
-				#print('\n'.join(str(t) for t in self.agent.Q.array.items()))
-			#print('REWARD', reward)
-			self.agent(reward, self.interpretation(state))
+			self.agent(reward, self.interpretation(state)) # Agent needs information about a the final state
 			self.agent.reset()
-			#self.env.render()
-			#if score > 0 and state['x'] == 0 == state['y']:
-			#	#print('\n'.join(str(t) for t in self.agent.Q.array.items()))
-			#	#self.env.render()
-			#	system('clear')
-			#	if Vs: print(sum(Vs)/len(Vs))
-			#	#input(f'{i} NEXT {i - V}')
-			#	if V: Vs.append(i - V)
-			#	V = i
-			#	#Vs = Vs[-100:]
-			##print('\n'.join(str(t) for t in self.agent.Q.array.items()))
-#
-			##print('\nDONE\n')
-		#print('SCORE', score)
 
 	def show(self, greedy=False):
 		self.env.reset()
