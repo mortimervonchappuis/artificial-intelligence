@@ -1,0 +1,3 @@
+[submodule "AI2/AI2/ai-gym"]
+	path = AI2/AI2/ai-gym
+	url = https://github.com/mhenn/ai-gym
