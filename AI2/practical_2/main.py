@@ -50,6 +50,7 @@ if algorithm == 'sarsa':
 	
 	# action_function = lambda state: [0, 1, 2, 3, 5]
 
+	greedy = False
 	alpha = 0.6
 	gamma = 1
 	epsilon = 0.4
@@ -57,14 +58,16 @@ if algorithm == 'sarsa':
 elif algorithm == 'q-learning':
 	# Q Learning
 	action_function = lambda state: [0, 1, 2, 3, 5]
-	alpha = 0.8
+	greedy = True
+	alpha = 0.5
 	gamma = 1.
 	epsilon = 0.3
 	episodes = 10000
 elif algorithm == 'double q-learning':
 	# Double Q Learning
 	action_function = lambda state: [0, 1, 2, 3, 5]
-	alpha = 0.8
+	greedy = True
+	alpha = 0.5
 	gamma = 1.
 	epsilon = 0.3
 	episodes = 20000
@@ -90,5 +93,5 @@ Simulation(episodes)
 
 # Lets have a look
 while input('Watch Episode? [y/n] ') != 'n':
-	Simulation.show()
+	Simulation.show(greedy)
 system('clear')
