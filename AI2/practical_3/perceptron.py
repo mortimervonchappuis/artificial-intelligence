@@ -2,7 +2,10 @@ import numpy as np
 from tqdm import trange
 
 
-class Perceptron():
+np.random.seed(42)
+
+
+class Perceptron:
 	"""Simple Perceptron Model to demonstrate the Functionality of one step Backpropagation"""
 	def __init__(self, input_size, output_size):
 		self.input_size = input_size
@@ -10,31 +13,32 @@ class Perceptron():
 		self.W = np.random.randn(output_size, input_size)
 		
 	# sigmoid function
-	def sigmoid(self, x):
+	def σ(self, x):
 		return 1/(1 + np.exp(-x))
 
 	# derivative of sigmoid function
-	def sigmoid_derivative(self, x):
-		return self.sigmoid(x) * (1 - self.sigmoid(x))
+	def σ_(self, x):
+		return self.σ(x) * (1 - self.σ(x))
 
 	# one step backpropagation
-	def gradient(self, x, t):
+	def Δ(self, x, t):
 		o = self(x)
-		return np.dot((t - o) * self.sigmoid_derivative(o), t) 
+		x = np.expand_dims(x, axis=0).T
+		return np.dot((t - o) * self.σ_(o), x.T)
 	
 	# training loop
-	def train(self, xs, ts, epochs, eta=0.1):
+	def train(self, xs, ts, epochs, η=0.1):
 		for i in trange(epochs):
 			ΔW = np.zeros(self.W.shape)
 			for x, t in zip(xs, ts):
-				ΔW += self.gradient(x, t)
-			self.W += eta/len(xs) * ΔW
+				ΔW += self.Δ(x, t)
+			self.W += η/len(xs) * ΔW
 	
 	# one calculation step of the perceptron
 	def __call__(self, x):
-		return self.sigmoid(np.dot(self.W, x))
+		return self.σ(np.dot(self.W, x))
 		
-		
+
 if __name__ == "__main__":
 	# model
 	input_size = 3
@@ -42,13 +46,27 @@ if __name__ == "__main__":
 	P = Perceptron(input_size, output_size)
 	
 	# data
-	xs = [np.array([0, 0, 1]), np.array([1, 1, 1]), np.array([1, 0, 0]), np.array([0, 1, 1])]
-	ts = [np.array([0]), np.array([1]), np.array([1]), np.array([0])]
+	xs = [
+		np.array([0, 0, 1]), 
+		np.array([1, 1, 1]), 
+		np.array([1, 0, 0]), 
+		np.array([0, 1, 1])
+		]
+	ts = [
+		np.array([0]), 
+		np.array([1]), 
+		np.array([1]), 
+		np.array([0])
+		]
 
 	# training
-	epochs = 100
-	eta = 1
-	P.train(xs, ts, epochs, eta)
+	epochs = 1000
+	η = .1
+
+	print(P.W)
+	P.train(xs, ts, epochs, η)
 
 	# test
-	print(f"Prediction: {P(np.array([1, 1, 0]))}")
+	print(P.W)
+	for x in (np.array([0, 1, 0]), np.array([0, 1, 1]), np.array([1, 1, 1]), np.array([1, 1, 0])):
+		print(f"Prediction: x = {x}		p = {P(x)}")
